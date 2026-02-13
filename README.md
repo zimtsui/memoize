@@ -1,26 +1,29 @@
-# Cache
+# Memoize
 
-[![Npm package version](https://shields.io/npm/v/@zimtsui/cache)](https://www.npmjs.com/package/@zimtsui/cache)
+[![Npm package version](https://shields.io/npm/v/@zimtsui/memoize)](https://www.npmjs.com/package/@zimtsui/memoize)
 
 Handle caching of asynchronous data with ease.
 
 ## Usage
 
 ```ts
-import { Cache } from '@zimtsui/cache';
+import { Memoize } from '@zimtsui/memoize';
 
-declare function writeDataToCache(key: string, value: string): Promise<void>;
-declare function readDataFromCache(key: string): Promise<string>;
-declare function generateData(key: string): Promise<string>;
+declare function readDataFromCache(key: string): Promise<[value: string, version: number]>;
+declare function writeDataToCache(key: string, value: string, version: number): Promise<void>;
+declare function getSourceVersion(key: string): Promise<number>;
+declare function generateDataFromSource(key: string): Promise<[value: string, version: number]>;
 
-const cache = Cache.create<string, string>();
+const memoize = Memoize.create<string, string, number>();
 
-export async function getData(key: string): Promise<string> {
-    return cache(
+export default function (key: string, signal?: AbortSignal): Promise<string> {
+    return memoize(
         key,
         () => readDataFromCache(key),
-        value => writeDataToCache(key, value),
-        () => generateData(key)
+        (value, version) => writeDataToCache(key, value, version),
+        () => getSourceVersion(key),
+        () => generateDataFromSource(key),
+        signal,
     );
 }
 ```

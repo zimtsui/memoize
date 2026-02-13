@@ -3,7 +3,7 @@
 		"target": "ES2022",
 		"module": "preserve",
 		"moduleDetection": "force",
-		"lib": ["esnext"],
+		"lib": ["esnext", "DOM"],
 		"sourceMap": true,
 		"strict": true,
 		"experimentalDecorators": true,
