@@ -2,7 +2,7 @@ import { fromJS, Map, type FromJS } from 'immutable';
 
 
 /**
- * @template key Plain object
+ * @template key Plain value
  */
 export interface Memoize<key, value, version> {
     (
@@ -29,38 +29,39 @@ export namespace Memoize {
         log: (e: unknown) => void = () => {},
     ): Memoize<key, value, version> {
         let map = Map<FromJS<key>, Promise<[value, version]>>();
-        return async function cache(key, readCache, writeCache, getSourceVersion, generateFromSource, signal) {
+        return async function cache(rawKey, readCache, writeCache, getSourceVersion, generateFromSource, signal) {
+            const key = fromJS(rawKey);
             if (signal?.aborted) throw signal?.reason;
             const sourceVersion = await getSourceVersion();
             try {
                 if (signal?.aborted) throw signal?.reason;
                 const [cacheValue, cacheVersion] = await readCache();
                 if (signal?.aborted) throw signal?.reason;
-                if (cacheVersion < sourceVersion) throw new Memoize.Outdated();
+                if (cacheVersion < sourceVersion) throw new Memoize.CacheOutdated();
                 return cacheValue;
             } catch (e) {
-                if (e instanceof Memoize.Miss || e instanceof Memoize.Outdated) {} else throw e;
-                for (let generating = map.get(fromJS(key)); generating; generating = map.get(fromJS(key))) {
+                if (e instanceof Memoize.CacheMiss || e instanceof Memoize.CacheOutdated) {} else throw e;
+                for (let generating = map.get(key); generating; generating = map.get(key)) {
                     const [value, version] = await Memoize.wait(generating, signal);
                     if (version >= sourceVersion) return value;
                 }
                 const generating = generateFromSource()
                     .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
-                    .finally(() => map = map.delete(fromJS(key)));
+                    .finally(() => map = map.delete(key));
                 generating.catch(log);
-                map = map.set(fromJS(key), generating);
+                map = map.set(key, generating);
                 return await Memoize.wait(generating, signal).then(([value]) => value);
             }
         };
     }
-    export class Miss extends Error {}
-    export class Outdated extends Error {}
+    export class CacheMiss extends Error {}
+    export class CacheOutdated extends Error {}
     export interface GetSourceVersion<version> {
         (): Promise<version>;
     }
     export interface ReadCache<value, version> {
         /**
-         * @throws {@link Cache.Miss}
+         * @throws {@link Memoize.CacheMiss}
          */
         (): Promise<[value, version]>;
     }
