@@ -29,31 +29,32 @@ export namespace Memoize {
         log: (e: unknown) => void = () => {},
     ): Memoize<key, value, version> {
         let map = Map<FromJS<key>, Promise<[value, version]>>();
-        return async function cache(rawKey, readCache, writeCache, getSourceVersion, generateFromSource, signal) {
-            const key = fromJS(rawKey);
-            if (signal?.aborted) throw signal?.reason;
-            const sourceVersion = await getSourceVersion();
-            try {
-                if (signal?.aborted) throw signal?.reason;
-                const [cacheValue, cacheVersion] = await readCache();
-                if (signal?.aborted) throw signal?.reason;
-                if (cacheVersion < sourceVersion) throw new Memoize.CacheOutdated();
-                return cacheValue;
-            } catch (e) {
-                if (e instanceof Memoize.CacheMiss || e instanceof Memoize.CacheOutdated) {} else throw e;
-                for (let generating = map.get(key); generating; generating = map.get(key)) {
-                    const [value, version] = await Memoize.wait(generating, signal);
-                    if (version >= sourceVersion) return value;
+        return async function (rawKey, readCache, writeCache, getSourceVersion, generateFromSource, signal) {
+            const promise = (async (): Promise<value> => {
+                const key = fromJS(rawKey);
+                const sourceVersion = await getSourceVersion();
+                try {
+                    const [cacheValue, cacheVersion] = await readCache();
+                    if (cacheVersion < sourceVersion) throw new Memoize.CacheOutdated();
+                    return cacheValue;
+                } catch (e) {
+                    if (e instanceof Memoize.CacheMiss || e instanceof Memoize.CacheOutdated) {} else throw e;
+                    for (let generating = map.get(key); generating; generating = map.get(key)) {
+                        const [value, version] = await generating;
+                        if (version >= sourceVersion) return value;
+                    }
+                    const generating = generateFromSource()
+                        .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
+                        .finally(() => map = map.delete(key));
+                    map = map.set(key, generating);
+                    return await generating.then(([value]) => value);
                 }
-                const generating = generateFromSource()
-                    .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
-                    .finally(() => map = map.delete(key));
-                generating.catch(log);
-                map = map.set(key, generating);
-                return await Memoize.wait(generating, signal).then(([value]) => value);
-            }
+            })();
+            promise.catch(log);
+            return await Memoize.wait(promise, signal);
         };
     }
+
     export class CacheMiss extends Error {}
     export class CacheOutdated extends Error {}
     export interface GetSourceVersion<version> {
