@@ -12,7 +12,7 @@ export interface Memoize<key, value, version> {
         getSourceVersion: Memoize.GetSourceVersion<version>,
         generateFromSource: Memoize.GenerateFromSource<value, version>,
         signal?: AbortSignal,
-    ): Promise<value>;
+    ): Promise<[value, version]>;
 }
 
 export namespace Memoize {
@@ -26,31 +26,31 @@ export namespace Memoize {
     }
 
     export function create<key, value, version>(
-        log: (e: unknown) => void = () => {},
+        handle: (e: unknown) => void = () => {},
     ): Memoize<key, value, version> {
         let map = Map<FromJS<key>, Promise<[value, version]>>();
         return async function (rawKey, readCache, writeCache, getSourceVersion, generateFromSource, signal) {
-            const promise = (async (): Promise<value> => {
+            const promise = (async (): Promise<[value, version]> => {
                 const key = fromJS(rawKey);
                 const sourceVersion = await getSourceVersion();
                 try {
                     const [cacheValue, cacheVersion] = await readCache();
                     if (cacheVersion < sourceVersion) throw new Memoize.CacheOutdated();
-                    return cacheValue;
+                    return [cacheValue, cacheVersion];
                 } catch (e) {
                     if (e instanceof Memoize.CacheMiss || e instanceof Memoize.CacheOutdated) {} else throw e;
                     for (let generating = map.get(key); generating; generating = map.get(key)) {
                         const [value, version] = await generating;
-                        if (version >= sourceVersion) return value;
+                        if (version >= sourceVersion) return [value, version];
                     }
                     const generating = generateFromSource()
                         .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
                         .finally(() => map = map.delete(key));
                     map = map.set(key, generating);
-                    return await generating.then(([value]) => value);
+                    return await generating;
                 }
             })();
-            promise.catch(log);
+            promise.catch(handle);
             return await Memoize.wait(promise, signal);
         };
     }
