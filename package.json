@@ -20,5 +20,8 @@
   "author": "Zim",
   "dependencies": {
     "immutable": "^5.1.4"
+  },
+  "peerDependencies": {
+    "@zimtsui/typelog": "^0.0.15"
   }
 }

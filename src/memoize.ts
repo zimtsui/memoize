@@ -1,4 +1,7 @@
 import { fromJS, Map, type FromJS } from 'immutable';
+import { Tracer } from '@zimtsui/typelog/tracer';
+
+const tracer = Tracer.create('@zimtsui/memoize');
 
 
 /**
@@ -35,19 +38,26 @@ export namespace Memoize {
                 const sourceVersion = await getSourceVersion();
                 try {
                     const [cacheValue, cacheVersion] = await readCache();
-                    if (cacheVersion < sourceVersion) throw new Memoize.CacheOutdated();
+                    if (cacheVersion < sourceVersion) throw Memoize.CacheOutdated;
                     return [cacheValue, cacheVersion];
                 } catch (e) {
-                    if (e instanceof Memoize.CacheMiss || e instanceof Memoize.CacheOutdated) {} else throw e;
-                    for (let generating = map.get(key); generating; generating = map.get(key)) {
-                        const [value, version] = await generating;
-                        if (version >= sourceVersion) return [value, version];
+                    if (e === Memoize.CacheMiss || e === Memoize.CacheOutdated) {} else throw e;
+                    try {
+                        return await tracer.activateAsync('cache blocked', async () => {
+                            for (let generating = map.get(key); generating; generating = map.get(key)) {
+                                const [value, version] = await generating;
+                                if (version >= sourceVersion) return [value, version];
+                            }
+                            throw Memoize.CacheOutdated;
+                        });
+                    } catch (e) {
+                        if (e === Memoize.CacheOutdated) {} else throw e;
+                        const generating = generateFromSource()
+                            .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
+                            .finally(() => map = map.delete(key));
+                        map = map.set(key, generating);
+                        return await generating;
                     }
-                    const generating = generateFromSource()
-                        .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
-                        .finally(() => map = map.delete(key));
-                    map = map.set(key, generating);
-                    return await generating;
                 }
             })();
             promise.catch(handle);
@@ -55,8 +65,8 @@ export namespace Memoize {
         };
     }
 
-    export class CacheMiss extends Error {}
-    export class CacheOutdated extends Error {}
+    export const CacheMiss = Symbol();
+    export const CacheOutdated = Symbol();
     export interface GetSourceVersion<version> {
         (): Promise<version>;
     }
