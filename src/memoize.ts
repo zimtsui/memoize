@@ -38,20 +38,20 @@ export namespace Memoize {
                 const sourceVersion = await getSourceVersion();
                 try {
                     const [cacheValue, cacheVersion] = await readCache();
-                    if (cacheVersion < sourceVersion) throw Memoize.CacheOutdated;
+                    if (cacheVersion < sourceVersion) throw Memoize.CACHE_OUTDATED;
                     return [cacheValue, cacheVersion];
                 } catch (e) {
-                    if (e === Memoize.CacheMiss || e === Memoize.CacheOutdated) {} else throw e;
+                    if (e === Memoize.CACHE_MISS || e === Memoize.CACHE_OUTDATED) {} else throw e;
                     try {
                         return await tracer.activateAsync('cache blocked', async () => {
                             for (let generating = map.get(key); generating; generating = map.get(key)) {
                                 const [value, version] = await generating;
                                 if (version >= sourceVersion) return [value, version];
                             }
-                            throw Memoize.CacheOutdated;
+                            throw Memoize.CACHE_OUTDATED;
                         });
                     } catch (e) {
-                        if (e === Memoize.CacheOutdated) {} else throw e;
+                        if (e === Memoize.CACHE_OUTDATED) {} else throw e;
                         const generating = generateFromSource()
                             .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
                             .finally(() => map = map.delete(key));
@@ -65,8 +65,8 @@ export namespace Memoize {
         };
     }
 
-    export const CacheMiss = Symbol();
-    export const CacheOutdated = Symbol();
+    export const CACHE_MISS = Symbol();
+    export const CACHE_OUTDATED = Symbol();
     export interface GetSourceVersion<version> {
         (): Promise<version>;
     }
