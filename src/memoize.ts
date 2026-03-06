@@ -72,7 +72,7 @@ export namespace Memoize {
     }
     export interface ReadCache<value, version> {
         /**
-         * @throws {@link Memoize.CacheMiss}
+         * @throws {@link Memoize.CACHE_MISS}
          */
         (): Promise<[value, version]>;
     }
