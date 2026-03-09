@@ -1,7 +1,4 @@
 import { fromJS, Map, type FromJS } from 'immutable';
-import { Tracer } from '@zimtsui/typelog/tracer';
-
-const tracer = Tracer.create('@zimtsui/memoize');
 
 
 /**
@@ -43,13 +40,11 @@ export namespace Memoize {
                 } catch (e) {
                     if (e === Memoize.CACHE_MISS || e === Memoize.CACHE_OUTDATED) {} else throw e;
                     try {
-                        return await tracer.activateAsync('cache blocked', async () => {
-                            for (let generating = map.get(key); generating; generating = map.get(key)) {
-                                const [value, version] = await generating;
-                                if (version >= sourceVersion) return [value, version];
-                            }
-                            throw Memoize.CACHE_OUTDATED;
-                        });
+                        for (let generating = map.get(key); generating; generating = map.get(key)) {
+                            const [value, version] = await generating;
+                            if (version >= sourceVersion) return [value, version];
+                        }
+                        throw Memoize.CACHE_OUTDATED;
                     } catch (e) {
                         if (e === Memoize.CACHE_OUTDATED) {} else throw e;
                         const generating = generateFromSource()
