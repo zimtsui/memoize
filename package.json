@@ -1,6 +1,6 @@
 {
   "name": "@zimtsui/memoize",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "exports": "./build/memoize.js",
   "description": "",
   "type": "module",
