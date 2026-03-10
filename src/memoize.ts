@@ -11,7 +11,6 @@ export interface Memoize<key, value, version> {
         writeCache: Memoize.WriteCache<value, version>,
         getSourceVersion: Memoize.GetSourceVersion<version>,
         generateFromSource: Memoize.GenerateFromSource<value, version>,
-        signal?: AbortSignal,
     ): Promise<[value, version]>;
 }
 
@@ -27,7 +26,7 @@ export namespace Memoize {
 
     export function create<key, value, version>(): Memoize<key, value, version> {
         let map = Map<FromJS<key>, Promise<[value, version]>>();
-        return async function (rawKey, readCache, writeCache, getSourceVersion, generateFromSource, signal) {
+        return async function (rawKey, readCache, writeCache, getSourceVersion, generateFromSource) {
             const key = fromJS(rawKey);
             const sourceVersion = await getSourceVersion();
             try {
