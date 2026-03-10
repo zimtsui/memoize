@@ -25,38 +25,32 @@ export namespace Memoize {
         }).finally(() => ac.abort());
     }
 
-    export function create<key, value, version>(
-        handle: (e: unknown) => void = () => {},
-    ): Memoize<key, value, version> {
+    export function create<key, value, version>(): Memoize<key, value, version> {
         let map = Map<FromJS<key>, Promise<[value, version]>>();
         return async function (rawKey, readCache, writeCache, getSourceVersion, generateFromSource, signal) {
-            const promise = (async (): Promise<[value, version]> => {
-                const key = fromJS(rawKey);
-                const sourceVersion = await getSourceVersion();
+            const key = fromJS(rawKey);
+            const sourceVersion = await getSourceVersion();
+            try {
+                const [cacheValue, cacheVersion] = await readCache();
+                if (cacheVersion < sourceVersion) throw Memoize.CACHE_OUTDATED;
+                return [cacheValue, cacheVersion];
+            } catch (e) {
+                if (e === Memoize.CACHE_MISS || e === Memoize.CACHE_OUTDATED) {} else throw e;
                 try {
-                    const [cacheValue, cacheVersion] = await readCache();
-                    if (cacheVersion < sourceVersion) throw Memoize.CACHE_OUTDATED;
-                    return [cacheValue, cacheVersion];
-                } catch (e) {
-                    if (e === Memoize.CACHE_MISS || e === Memoize.CACHE_OUTDATED) {} else throw e;
-                    try {
-                        for (let generating = map.get(key); generating; generating = map.get(key)) {
-                            const [value, version] = await generating;
-                            if (version >= sourceVersion) return [value, version];
-                        }
-                        throw Memoize.CACHE_OUTDATED;
-                    } catch (e) {
-                        if (e === Memoize.CACHE_OUTDATED) {} else throw e;
-                        const generating = generateFromSource()
-                            .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
-                            .finally(() => map = map.delete(key));
-                        map = map.set(key, generating);
-                        return await generating;
+                    for (let generating = map.get(key); generating; generating = map.get(key)) {
+                        const [value, version] = await generating;
+                        if (version >= sourceVersion) return [value, version];
                     }
+                    throw Memoize.CACHE_OUTDATED;
+                } catch (e) {
+                    if (e === Memoize.CACHE_OUTDATED) {} else throw e;
+                    const generating = generateFromSource()
+                        .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
+                        .finally(() => map = map.delete(key));
+                    map = map.set(key, generating);
+                    return await generating;
                 }
-            })();
-            promise.catch(handle);
-            return await Memoize.wait(promise, signal);
+            }
         };
     }
 
