@@ -31,18 +31,18 @@ export namespace Memoize {
             const sourceVersion = await getSourceVersion();
             try {
                 const [cacheValue, cacheVersion] = await readCache();
-                if (cacheVersion < sourceVersion) throw Memoize.CACHE_OUTDATED;
+                if (cacheVersion < sourceVersion) throw new Memoize.CacheOutdated();
                 return [cacheValue, cacheVersion];
             } catch (e) {
-                if (e === Memoize.CACHE_MISS || e === Memoize.CACHE_OUTDATED) {} else throw e;
+                if (e instanceof Memoize.CacheMiss || e instanceof Memoize.CacheOutdated) {} else throw e;
                 try {
                     for (let generating = map.get(key); generating; generating = map.get(key)) {
                         const [value, version] = await generating;
                         if (version >= sourceVersion) return [value, version];
                     }
-                    throw Memoize.CACHE_OUTDATED;
+                    throw new Memoize.CacheOutdated();
                 } catch (e) {
-                    if (e === Memoize.CACHE_OUTDATED) {} else throw e;
+                    if (e instanceof Memoize.CacheOutdated) {} else throw e;
                     const generating = generateFromSource()
                         .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
                         .finally(() => map = map.delete(key));
@@ -53,14 +53,14 @@ export namespace Memoize {
         };
     }
 
-    export const CACHE_MISS = Symbol();
-    export const CACHE_OUTDATED = Symbol();
+    export class CacheMiss {}
+    export class CacheOutdated {}
     export interface GetSourceVersion<version> {
         (): Promise<version>;
     }
     export interface ReadCache<value, version> {
         /**
-         * @throws {@link Memoize.CACHE_MISS}
+         * @throws {@link Memoize.CacheMiss}
          */
         (): Promise<[value, version]>;
     }
