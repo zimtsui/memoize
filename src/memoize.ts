@@ -31,18 +31,18 @@ export namespace Memoize {
             const sourceVersion = await getSourceVersion();
             try {
                 const [cacheValue, cacheVersion] = await readCache();
-                if (cacheVersion < sourceVersion) throw new Memoize.CacheOutdated();
+                if (cacheVersion < sourceVersion) throw new CacheOutdated();
                 return [cacheValue, cacheVersion];
             } catch (e) {
-                if (e instanceof Memoize.CacheMiss || e instanceof Memoize.CacheOutdated) {} else throw e;
+                if (e instanceof Memoize.CacheMiss || e instanceof CacheOutdated) {} else throw e;
                 try {
                     for (let generating = map.get(key); generating; generating = map.get(key)) {
                         const [value, version] = await generating;
                         if (version >= sourceVersion) return [value, version];
                     }
-                    throw new Memoize.CacheOutdated();
+                    throw new CacheOutdated();
                 } catch (e) {
-                    if (e instanceof Memoize.CacheOutdated) {} else throw e;
+                    if (e instanceof CacheOutdated) {} else throw e;
                     const generating = generateFromSource()
                         .then(([value, version]) => writeCache(value, version).then(() => [value, version]))
                         .finally(() => map = map.delete(key));
@@ -54,7 +54,7 @@ export namespace Memoize {
     }
 
     export class CacheMiss {}
-    export class CacheOutdated {}
+    class CacheOutdated {}
     export interface GetSourceVersion<version> {
         (): Promise<version>;
     }
