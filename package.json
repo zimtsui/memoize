@@ -1,7 +1,10 @@
 {
   "name": "@zimtsui/memoize",
   "version": "0.0.13",
-  "exports": "./build/memoize.js",
+  "exports": {
+    "./share": "./build/share.js",
+    "./wait": "./build/wait.js"
+  },
   "description": "",
   "type": "module",
   "engines": {
@@ -20,5 +23,8 @@
   "author": "Zim",
   "dependencies": {
     "immutable": "^5.1.4"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
   }
 }
