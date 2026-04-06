@@ -2,6 +2,7 @@
   "name": "@zimtsui/memoize",
   "version": "0.0.15",
   "exports": {
+    ".": "./build/exports.js",
     "./share": "./build/share.js",
     "./wait": "./build/wait.js"
   },
