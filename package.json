@@ -2,7 +2,6 @@
   "name": "@zimtsui/memoize",
   "version": "0.0.16",
   "exports": {
-    ".": "./build/exports.js",
     "./share": "./build/share.js",
     "./wait": "./build/wait.js"
   },
@@ -19,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zimtsui/cache.git"
+    "url": "git+https://github.com/zimtsui/memoize.git"
   },
   "author": "Zim",
   "dependencies": {
